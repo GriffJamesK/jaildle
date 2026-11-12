@@ -17,6 +17,7 @@ SRC, OUT = ROOT / "docs" / "i", ROOT / "data" / "portraits"
 W, H = 54, 64                  # canvas in art pixels; shown 4x
 FACE_W, FACE_CX, CHIN_Y = 19, 27, 36
 INK = (26, 24, 30)
+session_alt = new_session("u2net_human_seg")
 session = new_session("isnet-general-use")    # cleaner than u2net_human_seg when other people stand behind the subject
 MODEL = pathlib.Path.home() / ".cache" / "jaildle" / "yunet.onnx"
 MODEL_URL = "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
@@ -59,6 +60,16 @@ def make(src, dst):
     cut = remove(im, session=session)
     rgb, alpha = np.array(im), np.array(cut)[:, :, 3]
     (fx, fy, fw, fh), how = find_face(rgb, alpha)
+    # Check the cut-out kept a body. Below the chin there should be shoulders about two faces wide;
+    # if the first model dropped them (it sometimes keeps only the face), try the second model and use the better one.
+    def body_width(al):
+        y0, y1 = int(min(al.shape[0] - 1, fy + fh * 1.25)), int(min(al.shape[0], fy + fh * 1.9))
+        x0, x1 = int(max(0, fx - fw)), int(min(al.shape[1], fx + 2 * fw))
+        return (al[y0:y1, x0:x1] > 128).sum(axis=1).mean() / fw if y1 > y0 else 9
+    if body_width(alpha) < 1.3:
+        alt = np.array(remove(im, session=session_alt))[:, :, 3]
+        if body_width(alt) > body_width(alpha) + 0.25:
+            alpha, how = alt, how + "+alt"
     s = FACE_W / fw                                                   # photo pixel -> art pixel
     cx, chin = fx + fw / 2, fy + fh
     # art (x, y) -> photo (px, py)
@@ -117,7 +128,7 @@ def main():
         how = make(src, dst)
         if how != "face":
             guessed.append(f"{src.stem}:{how}")
-    print("done. No face found (placed by silhouette):", " ".join(guessed) or "none")
+    print("done. Placed by silhouette (guess) or cut out with the second model (+alt):", " ".join(guessed) or "none")
 
 
 if __name__ == "__main__":
