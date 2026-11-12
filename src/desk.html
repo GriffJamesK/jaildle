@@ -397,6 +397,7 @@ function dealPapers(){ const p=C.p;
   addDoc("form", 0.56, 0.05, d=>{
     head(d,"Release estimate","Form R-12");
     d.appendChild(el("p",null,"Time left before release. Within 3 months counts. Five attempts."));
+    if(p.releaseType==="earliest parole eligibility"){ const n=el("p",null,"For this case, guess the time until parole is first possible."); n.style.cssText="border-left:4px solid var(--stamp);padding-left:6px"; d.appendChild(n); }
     const f=el("form"); f.autocomplete="off"; const box=el("div","fbox"); const steps=el("div","steps");
     [["yrs","Years",99,5],["mos","Months",11,0]].forEach(([id,lab,max,val])=>{ const w=el("div"); const l=el("label","lab",lab); l.htmlFor=id; l.style.marginTop="0"; w.appendChild(l);
       const s=el("div","stp"); const m=el("button",null,"−"); m.type="button"; m.setAttribute("aria-label","Fewer "+lab.toLowerCase());

@@ -190,6 +190,7 @@ footer{font-size:12px;color:var(--ink-soft);max-width:70ch}
         <p class="headline" id="headline"></p>
       </div>
       <p class="question">How much time is left before <b id="qName"></b> could walk out? Guess in years and months. Land within <b>3 months</b> to win. Five guesses.</p>
+      <p class="question" id="qNote" hidden></p>
 
       <form id="form" autocomplete="off">
         <div class="field">
@@ -286,6 +287,7 @@ function render(){
   $("modeBtn").textContent = "Back to today's case"; $("modeBtn").hidden = S.mode==="daily";
   $("pName").textContent=p.name; $("qName").textContent=p.name; $("pKnown").textContent=p.knownFor||"";
   $("headline").textContent=p.headline;
+  const qn=$("qNote"); qn.hidden = p.releaseType!=="earliest parole eligibility"; qn.textContent = qn.hidden ? "" : "For this case, guess the time until parole is first possible.";
   const chart=$("chart"); chart.classList.toggle("open", won); chart.querySelectorAll("img,.nophoto").forEach(n=>n.remove());
   if(p.img){ const im=new Image(); im.src=p.img; im.alt="Photo of "+p.name; chart.appendChild(im); }
   else { const d=document.createElement("div"); d.className="nophoto"; d.textContent="?"; d.setAttribute("aria-label","No photo available"); chart.appendChild(d); }
