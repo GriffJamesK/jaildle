@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jaildle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil:wght@700;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one narrow booking sheet. Photo against a height chart on the left,
+   the docket (headline, guesses, unlocked records) on the right; stacks on phones. */
+:root{
+  --wall:#dfe2dc;        /* painted cinderblock */
+  --sheet:#f4f5f1;       /* booking sheet */
+  --ink:#14181a;
+  --ink-soft:#566066;
+  --rule:#b9bfb8;
+  --steel:#3b4347; --steel-hi:#78848a; --steel-lo:#1d2224;
+  --jumpsuit:#e2560f;    /* accent */
+  --jumpsuit-ink:#ffffff;
+  --hot:#c8321a; --warm:#d98a12; --cool:#3f7fa6; --cold:#2c4f8a; --win:#1f7a4a;
+  --display:"Big Shoulders Stencil","Arial Narrow",Impact,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --wall:#15181a; --sheet:#1e2326; --ink:#eceee9; --ink-soft:#9aa5a8; --rule:#3a4347;
+    --steel:#8a969c; --steel-hi:#c3ccd0; --steel-lo:#4a5459;
+    --jumpsuit:#f47a2c; --jumpsuit-ink:#14181a;
+    --hot:#f0603f; --warm:#eaa637; --cool:#6fb1d6; --cold:#7d9fe0; --win:#4fc487;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --wall:#15181a; --sheet:#1e2326; --ink:#eceee9; --ink-soft:#9aa5a8; --rule:#3a4347;
+  --steel:#8a969c; --steel-hi:#c3ccd0; --steel-lo:#4a5459;
+  --jumpsuit:#f47a2c; --jumpsuit-ink:#14181a;
+  --hot:#f0603f; --warm:#eaa637; --cool:#6fb1d6; --cold:#7d9fe0; --win:#4fc487;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--wall);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;
+  padding:20px 16px 48px}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--jumpsuit);outline-offset:2px}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  border-bottom:3px solid var(--ink);padding-bottom:8px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(40px,9vw,64px);line-height:.85;margin:0;
+  letter-spacing:.02em;text-transform:uppercase}
+h1 span{color:var(--jumpsuit)}
+.meta{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);
+  display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.daynav{display:inline-flex;align-items:center;gap:8px}
+.navbtn{background:none;border:1px solid var(--rule);color:var(--ink);font-size:11px;line-height:1;padding:5px 7px;cursor:pointer}
+.navbtn:hover{background:var(--ink);color:var(--sheet)}
+.navbtn:disabled{opacity:.3;cursor:default;background:none;color:var(--ink)}
+.linkbtn[hidden]{display:none}
+.linkbtn{background:none;border:0;padding:0;font-family:var(--mono);font-size:12px;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+.sheet{background:var(--sheet);border:1px solid var(--rule);display:grid;grid-template-columns:260px 1fr}
+@media (max-width:640px){.sheet{grid-template-columns:1fr}}
+
+/* Mugshot against a height chart */
+.mug{position:relative;border-right:1px solid var(--rule);padding:16px;display:flex;flex-direction:column;gap:10px}
+@media (max-width:640px){.mug{border-right:0;border-bottom:1px solid var(--rule)}}
+.chart{position:relative;aspect-ratio:4/5;overflow:hidden;background:
+  repeating-linear-gradient(to bottom,transparent 0 23px,var(--rule) 23px 24px),var(--wall)}
+@media (max-width:640px){.chart{max-width:240px;width:100%;margin:0 auto}}
+.chart img{position:absolute;inset:8% 12% 0 12%;width:76%;height:92%;object-fit:cover;object-position:50% 20%;
+  filter:grayscale(1) contrast(1.08);display:block}
+.chart .nophoto{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);
+  font-size:96px;color:var(--rule)}
+.door{position:absolute;top:0;bottom:0;width:50%;z-index:2;pointer-events:none;
+  border-top:7px solid var(--steel);border-bottom:7px solid var(--steel);
+  background:repeating-linear-gradient(90deg,transparent 0 17px,var(--steel-lo) 17px 19px,var(--steel) 19px 23px,var(--steel-hi) 23px 24px);
+  transition:transform 1.1s cubic-bezier(.6,.05,.3,1)}
+.door.left{left:0;border-left:7px solid var(--steel)}
+.door.right{right:0;border-right:7px solid var(--steel);background-position:right top;
+  background-image:repeating-linear-gradient(270deg,transparent 0 17px,var(--steel-lo) 17px 19px,var(--steel) 19px 23px,var(--steel-hi) 23px 24px)}
+.chart.open .door.left{transform:translateX(-100%)}
+.chart.open .door.right{transform:translateX(100%)}
+@media (prefers-reduced-motion: reduce){.door{transition:none}}
+.ticks{position:absolute;left:4px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;
+  font-family:var(--mono);font-size:9px;color:var(--ink-soft);padding:2px 0;pointer-events:none}
+.placard{background:var(--ink);color:var(--sheet);font-family:var(--mono);padding:8px 10px;text-align:center}
+.placard b{display:block;font-family:var(--display);font-weight:700;font-size:26px;line-height:1;letter-spacing:.04em;
+  text-transform:uppercase;overflow-wrap:anywhere}
+.placard small{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;margin-top:4px}
+.credit{font-size:11px;color:var(--ink-soft);text-align:center}
+.credit a{color:inherit}
+
+.docket{padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.headline{font-family:var(--display);font-weight:700;font-size:clamp(26px,5vw,36px);line-height:1;margin:4px 0 0;
+  text-transform:uppercase;letter-spacing:.01em;text-wrap:balance}
+.question{margin:0;font-size:15px}
+.question b{font-weight:600}
+
+/* Records (clues) */
+.records{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.records li{display:grid;grid-template-columns:132px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule);
+  font-size:14px;align-items:baseline}
+.records .k{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.records .v{overflow-wrap:anywhere}
+.records li.sealed .v{font-family:var(--mono);font-size:12px;color:var(--ink-soft);
+  background:repeating-linear-gradient(135deg,transparent 0 6px,var(--rule) 6px 7px);padding:2px 6px}
+.unseal{background:transparent;border:2px solid var(--jumpsuit);color:var(--ink);font-family:var(--mono);font-size:11px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;padding:4px 12px;cursor:pointer}
+.unseal:hover{background:var(--jumpsuit);color:var(--jumpsuit-ink)}
+.records li.fresh{animation:unseal .5s ease-out}
+@keyframes unseal{from{background:var(--jumpsuit)}to{background:transparent}}
+@media (max-width:420px){.records li{grid-template-columns:1fr;gap:2px}}
+
+/* Guess form */
+form{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+form[hidden]{display:none}
+.field{display:flex;flex-direction:column;gap:4px}
+.stepper{display:flex;border:2px solid var(--ink)}
+.stepper button{width:38px;background:transparent;border:0;font-family:var(--mono);font-size:20px;cursor:pointer}
+.stepper button:hover{background:var(--rule)}
+.stepper input{width:56px;border:0;border-left:2px solid var(--ink);border-right:2px solid var(--ink);background:var(--sheet);
+  text-align:center;font-family:var(--mono);font-weight:600;font-size:22px;padding:6px 0;-moz-appearance:textfield;border-radius:0}
+.stepper input:focus,.stepper input:focus-visible{outline:none;box-shadow:inset 0 0 0 3px var(--jumpsuit)}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.go{background:var(--jumpsuit);color:var(--jumpsuit-ink);border:2px solid var(--ink);font-family:var(--display);
+  font-weight:700;font-size:22px;letter-spacing:.06em;text-transform:uppercase;padding:7px 18px;cursor:pointer}
+.go:hover{filter:brightness(1.08)}
+.go:disabled{opacity:.4;cursor:default}
+.err{font-family:var(--mono);font-size:12px;color:var(--hot);min-height:1em;flex-basis:100%;margin:0}
+
+/* Guess rows */
+.guesses{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.guesses li{display:grid;grid-template-columns:22px 1fr auto auto;gap:10px;align-items:center;
+  border:1px solid var(--rule);padding:7px 10px;font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+.guesses li.empty{color:var(--ink-soft);border-style:dashed;grid-template-columns:22px 1fr}
+.guesses .n{color:var(--ink-soft);font-size:11px}
+.dir{font-weight:600;white-space:nowrap}
+.heat{font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;color:#fff;white-space:nowrap}
+.heat.h5,.heat.h4{background:var(--hot)} .heat.h3{background:var(--warm)} .heat.h2{background:var(--cool)}
+.heat.h1,.heat.h0{background:var(--cold)} .heat.hw{background:var(--win)}
+:root[data-theme="dark"] .heat{color:#14181a}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .heat{color:#14181a}}
+
+/* Verdict */
+.verdict{border:3px solid var(--ink);padding:14px;display:flex;flex-direction:column;gap:8px}
+.verdict h2{font-family:var(--display);font-weight:900;font-size:34px;line-height:1;margin:0;text-transform:uppercase}
+.verdict.won h2{color:var(--win)} .verdict.lost h2{color:var(--hot)}
+.verdict p{margin:0;font-size:15px}
+.verdict .big{font-family:var(--mono);font-weight:600;font-size:18px}
+.verdict .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.btn{background:transparent;border:2px solid var(--ink);font-family:var(--mono);font-size:12px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;cursor:pointer}
+.btn:hover{background:var(--ink);color:var(--sheet)}
+.sources{font-size:12px;color:var(--ink-soft)}
+.sources a{color:inherit}
+pre.share{font-family:var(--mono);font-size:13px;margin:0;white-space:pre-wrap}
+
+.stats{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--ink-soft)}
+.stats b{color:var(--ink);font-size:16px;margin-right:4px}
+
+details{font-size:14px;color:var(--ink-soft);max-width:65ch}
+details summary{cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
+details p{margin:8px 0 0}
+footer{font-size:12px;color:var(--ink-soft);max-width:70ch}
+@media (prefers-reduced-motion: reduce){.records li.fresh{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Jail<span>dle</span></h1>
+    <div class="meta"><span class="daynav"><button class="navbtn" id="prevDay" type="button" aria-label="Previous day's case">◀</button><span id="caseNo"></span><button class="navbtn" id="nextDay" type="button" aria-label="Next day's case">▶</button></span><button class="linkbtn" id="modeBtn" type="button"></button></div>
+  </header>
+
+  <section class="sheet" aria-live="polite">
+    <div class="mug">
+      <div class="chart" id="chart"><div class="door left" aria-hidden="true"></div><div class="door right" aria-hidden="true"></div><div class="ticks"><span>6'6"</span><span>6'0"</span><span>5'6"</span><span>5'0"</span><span>4'6"</span></div></div>
+      <div class="placard"><b id="pName"></b><small id="pKnown"></small></div>
+      <div class="credit" id="credit"></div>
+    </div>
+    <div class="docket">
+      <div>
+        <div class="label">Convicted</div>
+        <p class="headline" id="headline"></p>
+      </div>
+      <p class="question">How much time is left before <b id="qName"></b> could walk out? Guess in years and months. Land within <b>3 months</b> to win. Five guesses.</p>
+
+      <form id="form" autocomplete="off">
+        <div class="field">
+          <label class="label" for="yrs">Years</label>
+          <div class="stepper"><button type="button" data-step="yrs:-1" aria-label="One year fewer">−</button><input id="yrs" type="number" inputmode="numeric" min="0" max="99" value="5"><button type="button" data-step="yrs:1" aria-label="One year more">+</button></div>
+        </div>
+        <div class="field">
+          <label class="label" for="mos">Months</label>
+          <div class="stepper"><button type="button" data-step="mos:-1" aria-label="One month fewer">−</button><input id="mos" type="number" inputmode="numeric" min="0" max="11" value="0"><button type="button" data-step="mos:1" aria-label="One month more">+</button></div>
+        </div>
+        <button class="go" id="go" type="submit">Guess</button>
+        <p class="err" id="err" role="alert"></p>
+      </form>
+
+      <div id="verdict"></div>
+      <ol class="guesses" id="guesses"></ol>
+
+      <div>
+        <ul class="records" id="records"></ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="stats" id="stats"></div>
+
+  <footer>Everyone listed was convicted in court and, to the best of our records, in custody when this list was checked in November 2026. Release dates move with appeals, credits, clemency and parole decisions. Sources are linked after each round. A new case opens at midnight, your time.</footer>
+</div>
+
+<script id="people" type="application/json">/*__DATA__*/</script>
+<script>
+(function(){
+"use strict";
+const PEOPLE = JSON.parse(document.getElementById("people").textContent);
+const EPOCH = Date.UTC(2026,10,12);   // case #1
+const MAX = 5, WIN_WITHIN = 3;
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+function today(){ const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function dayIndex(){ const t=today(); return Math.round((Date.UTC(t.getFullYear(),t.getMonth(),t.getDate())-EPOCH)/864e5); }
+function parseDate(s){ const p=s.split("-").map(Number); return new Date(p[0], (p[1]||1)-1, p[2]||15); }
+// Whole months from today to the release date, rounded to the nearest month.
+function monthsLeft(p){
+  const t=today(), r=parseDate(p.releaseDate);
+  let m=(r.getFullYear()-t.getFullYear())*12 + (r.getMonth()-t.getMonth());
+  const dd=r.getDate()-t.getDate();
+  if(dd>=15) m+=1; else if(dd<=-16) m-=1;
+  return m;
+}
+function fmtDur(m){ const y=Math.floor(m/12), mo=m%12;
+  const a=[]; if(y) a.push(y+(y===1?" year":" years")); if(mo||!y) a.push(mo+(mo===1?" month":" months")); return a.join(", "); }
+function fmtDate(s){ if(!s) return ""; const p=s.split("-"); const M=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  if(p.length===1) return p[0]; if(p.length===2) return M[+p[1]-1]+" "+p[0]; return M[+p[1]-1]+" "+(+p[2])+", "+p[0]; }
+function heat(diff){ const a=Math.abs(diff);
+  if(a<=WIN_WITHIN) return ["hw","Got it","🟩"]; if(a<=6) return ["h5","Scorching","🟥"]; if(a<=12) return ["h4","Hot","🟧"];
+  if(a<=24) return ["h3","Warm","🟨"]; if(a<=60) return ["h2","Cool","🟦"]; if(a<=120) return ["h1","Cold","🟪"]; return ["h0","Frozen","⬛"]; }
+
+const eligible = () => PEOPLE.map((p,i)=>i).filter(i => monthsLeft(PEOPLE[i]) >= 2);
+// Day d plays person d in list order. Anyone now within two months of release is skipped in favour of the next person.
+function dailyPick(d){ const n=PEOPLE.length; if(d==null) d=dayIndex(); let i=((d%n)+n)%n;
+  for(let k=0;k<n && monthsLeft(PEOPLE[i])<2;k++) i=(i+1)%n; return i; }
+
+let S;  // {mode:'daily'|'practice', idx, guesses:[months], day}
+function load(hot){
+  if(hot && hot.S && PEOPLE[hot.S.idx]) { S=hot.S; if((S.mode==="daily" && S.day!==dayIndex()) || S.mode==="practice" || (!DEV && S.day>dayIndex())) S=null; }
+  if(!S){ const saved=store.get("jaildle.today");
+    S = (saved && saved.day===dayIndex() && PEOPLE[saved.idx]) ? saved : {mode:"daily", idx:dailyPick(), guesses:[], day:dayIndex()}; }
+  render();
+}
+function save(){ if(S.mode==="daily") store.set("jaildle.today", S); }
+function isOver(){ const ans=monthsLeft(PEOPLE[S.idx]);
+  return S.guesses.length>=MAX || S.guesses.some(g=>Math.abs(g-ans)<=WIN_WITHIN); }
+function isWon(){ const ans=monthsLeft(PEOPLE[S.idx]); return S.guesses.some(g=>Math.abs(g-ans)<=WIN_WITHIN); }
+
+function recordsFor(p){
+  const age = p.birthYear ? " Age now: about "+(today().getFullYear()-p.birthYear)+"." : "";
+  return [
+    ["Offence dates", [p.crimeDates, p.convictedOf ? "Counts: "+p.convictedOf : ""].filter(Boolean).join(". ")],
+    ["In custody since", [fmtDate(p.custodyStart), p.sentencingDate ? "Sentenced "+fmtDate(p.sentencingDate)+"." : ""].filter(Boolean).join(". ")+age],
+    ["Where and how", [p.jurisdiction, p.facility ? "Held at "+p.facility : "", p.releaseRule].filter(Boolean).join(". ")],
+    ["Sentence", p.sentenceLength]
+  ];
+}
+
+let lastUnsealed=-1;
+function render(){
+  const p=PEOPLE[S.idx], ans=monthsLeft(p), over=isOver(), won=isWon();
+  $("caseNo").textContent = S.mode==="practice" ? "Practice case" : "Case no. "+(S.day+1)+(S.mode==="replay" ? (S.day>dayIndex()?" · preview":" · replay") : "");
+  $("prevDay").disabled = S.mode==="practice" || S.day<=0;
+  $("nextDay").disabled = S.mode==="practice" || (!DEV && S.day>=dayIndex());
+  $("modeBtn").textContent = "Back to today's case"; $("modeBtn").hidden = S.mode==="daily";
+  $("pName").textContent=p.name; $("qName").textContent=p.name; $("pKnown").textContent=p.knownFor||"";
+  $("headline").textContent=p.headline;
+  const chart=$("chart"); chart.classList.toggle("open", won); chart.querySelectorAll("img,.nophoto").forEach(n=>n.remove());
+  if(p.img){ const im=new Image(); im.src=p.img; im.alt="Photo of "+p.name; chart.appendChild(im); }
+  else { const d=document.createElement("div"); d.className="nophoto"; d.textContent="?"; d.setAttribute("aria-label","No photo available"); chart.appendChild(d); }
+  const cr=$("credit"); cr.textContent="";
+  if(p.imgCredit){ const a=document.createElement("a"); a.href=p.imgCredit; a.target="_blank"; a.rel="noopener"; a.textContent="Photo source"; cr.appendChild(a); }
+
+  // guesses
+  const gl=$("guesses"); gl.textContent="";
+  for(let i=0;i<MAX;i++){
+    const li=document.createElement("li"); const n=document.createElement("span"); n.className="n"; n.textContent=(i+1); li.appendChild(n);
+    if(i<S.guesses.length){ const g=S.guesses[i], diff=g-ans, h=heat(diff);
+      const t=document.createElement("span"); t.textContent=fmtDur(g); li.appendChild(t);
+      const d=document.createElement("span"); d.className="dir"; d.textContent = h[0]==="hw" ? "✓" : (diff<0 ? "▲ Longer" : "▼ Shorter"); li.appendChild(d);
+      const b=document.createElement("span"); b.className="heat "+h[0]; b.textContent=h[1]; li.appendChild(b);
+    } else { li.className="empty"; const t=document.createElement("span"); t.textContent = i===S.guesses.length && !over ? "Your next guess" : "—"; li.appendChild(t); }
+    gl.appendChild(li);
+  }
+  // records
+  const rl=$("records"); rl.textContent="";
+  const misses = S.guesses.filter(g=>Math.abs(g-ans)>WIN_WITHIN).length;
+  const opened = S.unsealed || [];
+  recordsFor(p).forEach((r,i)=>{ const open = over || opened.includes(i), ready = !open && misses>i;   // each miss makes one more record available; the player chooses whether to open it
+    const li=document.createElement("li"); if(!open) li.className = ready ? "ready" : "sealed"; else if(i===lastUnsealed) li.className="fresh";
+    const k=document.createElement("span"); k.className="k"; k.textContent=r[0];
+    const v=document.createElement("span"); v.className="v";
+    if(open) v.textContent = r[1]||"Not on record";
+    else if(ready){ const b=document.createElement("button"); b.type="button"; b.className="unseal"; b.textContent="Unseal"; b.setAttribute("aria-label","Unseal "+r[0].toLowerCase());
+      b.onclick=()=>{ S.unsealed=(S.unsealed||[]).concat(i); lastUnsealed=i; save(); render(); }; v.appendChild(b); }
+    else v.textContent = "Sealed";
+    li.append(k,v); rl.appendChild(li); });
+  lastUnsealed=-1;
+
+  // form + verdict
+  $("form").hidden = over;
+  const vd=$("verdict"); vd.textContent="";
+  if(over){
+    const box=document.createElement("div"); box.className="verdict "+(won?"won":"lost");
+    const h=document.createElement("h2"); h.textContent = won ? "Correct in "+S.guesses.length+(S.guesses.length===1?" guess":" guesses") : "Out of guesses"; box.appendChild(h);
+    const a=document.createElement("p"); a.className="big"; a.textContent=fmtDur(ans)+" to go"; box.appendChild(a);
+    const d=document.createElement("p");
+    const kind={"official projected release":"Official projected release date","earliest parole eligibility":"Earliest possible parole date","computed full term":"End of full sentence","computed estimate":"Estimated release date"}[p.releaseType]||"Release date";
+    d.textContent = kind+": "+fmtDate(p.releaseDate)+"."+(p.notes?" "+p.notes:""); box.appendChild(d);
+    if(p.sources && p.sources.length){ const s=document.createElement("p"); s.className="sources"; s.append("Sources: ");
+      p.sources.forEach((u,i)=>{ const l=document.createElement("a"); l.href=u; l.target="_blank"; l.rel="noopener";
+        try{ l.textContent=new URL(u).hostname.replace(/^www\./,""); }catch(e){ l.textContent="link"; }
+        if(i) s.append(", "); s.appendChild(l); }); box.appendChild(s); }
+    const row=document.createElement("div"); row.className="row";
+    const share=shareText(p,ans,won);
+    const pre=document.createElement("pre"); pre.className="share"; pre.textContent=share; box.appendChild(pre);
+    const cb=document.createElement("button"); cb.className="btn"; cb.type="button"; cb.textContent="Copy result";
+    cb.onclick=()=>{ (navigator.clipboard?navigator.clipboard.writeText(share):Promise.reject()).then(()=>cb.textContent="Copied",()=>cb.textContent="Select the text above to copy"); };
+    row.appendChild(cb);
+    if(S.mode==="daily"){ const c=document.createElement("span"); c.className="label"; c.id="countdown"; row.appendChild(c); }
+    box.appendChild(row); vd.appendChild(box); tick();
+  }
+  renderStats();
+}
+function shareText(p,ans,won){
+  const squares=S.guesses.map(g=>{ const diff=g-ans, h=heat(diff); return h[2]+(h[0]==="hw"?"":(diff<0?"⬆️":"⬇️")); }).join(" ");
+  return "Jaildle "+(S.mode==="practice"?"practice":"#"+(S.day+1))+" "+(won?S.guesses.length:"X")+"/"+MAX+"\n"+squares;
+}
+function renderStats(){
+  const st=store.get("jaildle.stats")||{played:0,won:0,streak:0,best:0};
+  const el=$("stats"); el.textContent="";
+  [["Played",st.played],["Win rate",st.played?Math.round(100*st.won/st.played)+"%":"0%"],["Streak",st.streak],["Best streak",st.best]].forEach(x=>{
+    const s=document.createElement("span"); const b=document.createElement("b"); b.textContent=x[1]; s.append(b,x[0]); el.appendChild(s); });
+}
+function recordResult(won){
+  const st=store.get("jaildle.stats")||{played:0,won:0,streak:0,best:0,lastDay:null};
+  if(st.lastDay===S.day) return;
+  st.played++; if(won){ st.won++; st.streak = (st.lastWinDay===S.day-1 ? st.streak : 0)+1; st.lastWinDay=S.day; st.best=Math.max(st.best,st.streak); } else st.streak=0;
+  st.lastDay=S.day; store.set("jaildle.stats",st);
+}
+function tick(){ const c=$("countdown"); if(!c) return; const n=new Date(), m=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1);
+  const s=Math.max(0,Math.floor((m-n)/1000)); const pad=x=>String(x).padStart(2,"0");
+  c.textContent="Next case in "+pad(Math.floor(s/3600))+":"+pad(Math.floor(s%3600/60))+":"+pad(s%60); }
+setInterval(()=>{ tick(); if(S && S.mode==="daily" && S.day!==dayIndex()){ S=null; load(); } },1000);
+
+// Other days: the arrows replay past cases only.
+const ALLOW_DEV = /*__DEV__*/false;   // only a local preview build (python3 build.py --dev) can step into future days
+let DEV = ALLOW_DEV;
+function goDay(d){ d=Math.max(0,d); if(!DEV) d=Math.min(d,dayIndex());
+  if(d===dayIndex()){ S=null; load(); return; }
+  S={mode:"replay", idx:dailyPick(d), guesses:[], day:d}; render(); }
+$("prevDay").onclick=()=>goDay(S.day-1);
+$("nextDay").onclick=()=>goDay(S.day+1);
+$("modeBtn").onclick=()=>{ S=null; load(); };
+
+function clamp(id){ const el=$(id); let v=parseInt(el.value,10); if(isNaN(v)) v=0; v=Math.max(+el.min,Math.min(+el.max,v)); el.value=v; return v; }
+document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{ const [id,d]=b.dataset.step.split(":"); const el=$(id);
+  let v=(parseInt(el.value,10)||0)+(+d);
+  if(id==="mos"){ const y=$("yrs"); if(v>11){ if(+y.value<99){ y.value=+y.value+1; v=0; } else v=11; } if(v<0){ if(+y.value>0){ y.value=+y.value-1; v=11; } else v=0; } }
+  el.value=v; clamp(id); $("err").textContent=""; });
+$("form").addEventListener("submit",ev=>{ ev.preventDefault(); if(isOver()) return;
+  const g=clamp("yrs")*12+clamp("mos");
+  if(S.guesses.includes(g)){ $("err").textContent="You already guessed "+fmtDur(g)+". Try a different length."; return; }
+  $("err").textContent="";
+  const ans=monthsLeft(PEOPLE[S.idx]); S.guesses.push(g);
+  if(isOver() && S.mode==="daily") recordResult(isWon());
+  save(); render(); });
+
+window.claude?.hot?.snapshot?.(()=>({S}));
+if(window.claude?.hot?.ready) window.claude.hot.ready(d=>load(d||{})); else load(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>

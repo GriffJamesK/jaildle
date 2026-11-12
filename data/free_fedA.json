@@ -1,0 +1,26 @@
+[
+ {
+  "id": 131,
+  "name": "Diego Montoya \"Don Diego\"",
+  "file": "131.jpg",
+  "sourcePage": "https://webarchive.library.unt.edu/eot2008/20080916221858/http:/www.fbi.gov/page2/may04/050604montoya.htm",
+  "credit": "FBI",
+  "evidence": "Archived fbi.gov headline page (May 6, 2004) announcing him as a Ten Most Wanted fugitive; img alt: \"Photograph of FBI's newest Top Ten Fugitive, Diego Leon Montoya Sanchez. Link to full Wanted poster.\" Low resolution (175px graphic, cropped to photo). FBI published it; original photographer not stated."
+ },
+ {
+  "id": 32,
+  "name": "Benjamín Arellano Félix",
+  "file": "032.jpg",
+  "sourcePage": "https://webarchive.library.unt.edu/eot2008/20080920042216/http:/www.usdoj.gov/dea/pubs/pressrel/pr030902.html",
+  "credit": "DEA",
+  "evidence": "Archived DEA news release, March 9, 2002, 'DEA Confirms Capture of Benjamin Arellano-Felix'; image pr030902.jpg with alt text 'photo - Benjamin Arellano-Felix'. DEA published it; release does not state who took the photo. Small (166x219)."
+ },
+ {
+  "id": 129,
+  "name": "Claudia Díaz Guillén",
+  "file": "129.jpg",
+  "sourcePage": "https://www.elvenezolanohouston.com/juez-niega-fianza-a-la-extesorera-venezolana-extraditada-a-ee-uu-desde-espana",
+  "credit": "HSI Miami (U.S. Immigration and Customs Enforcement)",
+  "evidence": "Caption under photo: 'Foto: EFE/HSI Miami' on EFE story about her first US court appearance after extradition from Spain (May 2022); image shows her flanked by two HSI special agents on arrival (cropped to her). ICE/HSI tweeted her arrival. CAVEAT: she wears a face mask and looks down, so face is only partly visible."
+ }
+]
