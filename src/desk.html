@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jaildle Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a records window in a cell block. A corridor strip with the queue on top,
+   the hatch where each inmate appears on the left, and a desk of loose, draggable papers on the right.
+   One fixed palette: night-shift concrete, steel, jumpsuit orange, manila paper. */
+:root{
+  --night:#16181d; --wall:#2a2e36; --wall-hi:#3a404a; --floor:#4a4f58; --steel:#6d7680; --steel-hi:#a3acb5;
+  --jumpsuit:#e2560f; --jumpsuit-lo:#a83c08; --desk:#3b2f27; --desk-hi:#4d3d32;
+  --paper:#e9dfc8; --paper-lo:#cfc3a6; --ink:#1d1a17; --ink-soft:#5d554a; --stamp:#b3261e; --ok:#1f7a4a; --cool:#2f6f96;
+  --ui:"Silkscreen","Courier New",monospace; --doc:"VT323","Courier New",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--night);color:var(--paper);font-family:var(--doc);font-size:20px;line-height:1.15;padding:12px 12px 32px;
+  -webkit-user-select:none;user-select:none}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--jumpsuit);outline-offset:2px}
+.game{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--ui);font-weight:700;font-size:28px;margin:0;letter-spacing:.04em;line-height:1}
+h1 span{color:var(--jumpsuit)}
+.tally{font-family:var(--ui);font-size:11px;letter-spacing:.06em;color:var(--steel-hi);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.tally b{color:var(--paper)}
+.tally a,.tally button{color:var(--steel-hi);background:none;border:0;padding:0;font-family:var(--ui);font-size:11px;text-decoration:underline;cursor:pointer}
+
+/* Corridor */
+.strip{position:relative;height:112px;overflow:hidden;border:4px solid #000;image-rendering:pixelated;
+  background:
+    linear-gradient(to bottom,transparent 0 74px,#000 74px 78px,var(--floor) 78px 100%),
+    repeating-linear-gradient(90deg,var(--wall) 0 16px,var(--wall-hi) 16px 20px,#14161a 20px 60px,var(--wall-hi) 60px 64px,var(--wall) 64px 96px)}
+.strip::after{content:"";position:absolute;left:0;right:0;top:78px;bottom:0;pointer-events:none;
+  background:repeating-linear-gradient(90deg,transparent 0 46px,rgba(0,0,0,.25) 46px 48px)}
+.door{position:absolute;top:22px;width:40px;height:56px;background:#0b0c0f;border:4px solid var(--steel);border-bottom:0}
+.door::before{content:"RECORDS";position:absolute;top:-18px;left:-14px;width:68px;text-align:center;font-family:var(--ui);font-size:8px;color:var(--steel-hi);letter-spacing:.08em}
+.fig{position:absolute;bottom:10px;width:24px;height:42px;transition:left .9s steps(9),opacity .2s steps(2)}
+.fig svg{display:block;width:100%;height:100%;shape-rendering:crispEdges}
+.fig.walk svg{animation:bob .3s steps(2) infinite}
+.fig.guard{left:auto;right:18px}
+@keyframes bob{50%{transform:translateY(-2px)}}
+
+.main{display:grid;grid-template-columns:232px 1fr;gap:8px;align-items:stretch}
+@media (max-width:760px){.main{grid-template-columns:1fr}}
+
+/* Hatch */
+.booth{background:var(--wall);border:4px solid #000;padding:12px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.hatch{position:relative;width:200px;height:228px;overflow:hidden;border:6px solid var(--steel);
+  background:repeating-linear-gradient(to bottom,#c9c3b4 0 18px,#aaa392 18px 20px)}
+.hatch .marks{position:absolute;left:3px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;
+  font-family:var(--ui);font-size:8px;color:#5a5448;padding:2px 0;pointer-events:none}
+.bust{position:absolute;left:12px;bottom:0;width:176px;height:208px;image-rendering:pixelated;transform:translateX(-125%)}
+.bust.in{animation:walkin 1.1s steps(11) forwards}
+.bust.out{animation:walkout 1.1s steps(11) forwards}
+@keyframes walkin{0%{transform:translate(-125%,0)}20%{transform:translate(-100%,-6px)}40%{transform:translate(-75%,0)}60%{transform:translate(-50%,-6px)}80%{transform:translate(-25%,0)}100%{transform:translate(0,0)}}
+@keyframes walkout{0%{transform:translate(0,0)}20%{transform:translate(25%,-6px)}40%{transform:translate(50%,0)}60%{transform:translate(75%,-6px)}80%{transform:translate(100%,0)}100%{transform:translate(125%,0)}}
+.shelf{width:212px;height:14px;background:var(--steel);border:4px solid #000;margin-top:-10px}
+.status{font-family:var(--ui);font-size:10px;letter-spacing:.06em;color:var(--steel-hi);text-align:center;min-height:2.4em}
+.call{font-family:var(--ui);font-weight:700;font-size:14px;letter-spacing:.06em;background:var(--jumpsuit);color:#fff;border:4px solid #000;
+  box-shadow:0 4px 0 var(--jumpsuit-lo);padding:10px 14px;cursor:pointer;width:100%}
+.call:active{transform:translateY(4px);box-shadow:none}
+.call:disabled{background:var(--wall-hi);color:var(--steel);box-shadow:0 4px 0 #1b1e23;cursor:default}
+
+/* Desk */
+.desk{position:relative;min-height:600px;border:4px solid #000;overflow:hidden;touch-action:none;
+  background:repeating-linear-gradient(90deg,var(--desk) 0 64px,var(--desk-hi) 64px 66px)}
+@media (max-width:760px){.desk{min-height:640px}}
+.tray{position:absolute;left:8px;bottom:8px;right:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;z-index:1;
+  background:#241c17;border:4px solid #000;padding:6px 8px}
+.tray .t{font-family:var(--ui);font-size:9px;letter-spacing:.08em;color:var(--paper-lo);margin-right:4px}
+.req{font-family:var(--ui);font-size:9px;letter-spacing:.04em;background:var(--paper-lo);color:var(--ink);border:3px solid #000;padding:5px 7px;cursor:pointer}
+.req:disabled{background:#4a4038;color:#8a7f72;cursor:default}
+.req.ready{background:var(--paper);box-shadow:0 0 0 2px var(--jumpsuit)}
+.empty[hidden]{display:none}
+.empty{position:absolute;inset:0 0 60px 0;display:grid;place-items:center;text-align:center;color:#8a7868;font-size:22px;padding:24px;pointer-events:none}
+
+.doc{position:absolute;background:var(--paper);color:var(--ink);border:3px solid #000;box-shadow:4px 4px 0 rgba(0,0,0,.45);
+  padding:10px 12px;cursor:grab;z-index:2;animation:slidein .5s steps(6) backwards;touch-action:none;max-width:calc(100% - 12px)}
+.doc.drag{cursor:grabbing;box-shadow:8px 8px 0 rgba(0,0,0,.4)}
+.doc.gone{animation:slideout .4s steps(5) forwards}
+@keyframes slidein{from{transform:translateX(-140%)}}
+@keyframes slideout{to{transform:translateY(180%)}}
+.doc h2{font-family:var(--ui);font-weight:700;font-size:11px;letter-spacing:.08em;margin:0 0 6px;padding-bottom:4px;border-bottom:3px solid var(--ink)}
+.doc p{margin:0 0 4px}
+.doc .lab{font-family:var(--ui);font-size:8px;letter-spacing:.1em;color:var(--ink-soft);display:block;margin-top:6px}
+.doc a{color:var(--ink)}
+.card{width:300px}
+.card .row{display:flex;gap:10px}
+.card img{width:96px;height:120px;object-fit:cover;object-position:50% 20%;filter:grayscale(1) contrast(1.1);border:3px solid #000;flex:none;pointer-events:none}
+.card .nm{font-size:26px;line-height:.95;text-transform:uppercase;overflow-wrap:anywhere}
+.card .hl{font-size:22px;line-height:1}
+.form{width:270px;background:#dfe6e2;z-index:9000 !important}   /* the estimate form is never buried under other papers */
+.steps{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.stp{display:flex;border:3px solid #000}
+.stp button{width:30px;background:var(--paper-lo);border:0;font-family:var(--ui);font-size:14px;cursor:pointer}
+.stp input{width:46px;border:0;border-left:3px solid #000;border-right:3px solid #000;background:#fff;text-align:center;font-family:var(--doc);font-size:28px;padding:0;
+  -moz-appearance:textfield;border-radius:0;-webkit-user-select:text;user-select:text}
+.stp input:focus{outline:none;box-shadow:inset 0 0 0 3px var(--jumpsuit)}
+.stp input::-webkit-outer-spin-button,.stp input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.file{font-family:var(--ui);font-weight:700;font-size:11px;background:var(--stamp);color:#fff;border:3px solid #000;box-shadow:0 3px 0 #6d1510;padding:8px 10px;cursor:pointer;margin-top:8px}
+.file:active{transform:translateY(3px);box-shadow:none}
+.pips{font-family:var(--ui);font-size:10px;letter-spacing:.2em;margin-top:8px}
+.err{font-size:18px;color:var(--stamp);min-height:1em;margin:4px 0 0}
+.slip{width:230px;background:#f4efdf}
+.slip .big{font-size:26px;line-height:1}
+.stampmark{display:inline-block;font-family:var(--ui);font-weight:700;font-size:12px;letter-spacing:.06em;border:3px solid currentColor;padding:3px 7px;margin-top:6px;transform:rotate(-4deg);
+  animation:thud .25s steps(3) backwards}
+@keyframes thud{from{transform:rotate(-4deg) scale(2.2);opacity:0}}
+.s-hot{color:var(--stamp)} .s-warm{color:#a8650a} .s-cool{color:var(--cool)} .s-cold{color:#2c3f7a} .s-ok{color:var(--ok)}
+.rec{width:290px;background:#e3d6b8}
+.verdict{width:320px;background:#fff8e6;z-index:9500 !important}
+.verdict .big{font-size:30px;line-height:1}
+.verdict .src{font-size:16px;color:var(--ink-soft)}
+.next{font-family:var(--ui);font-weight:700;font-size:11px;background:var(--jumpsuit);color:#fff;border:3px solid #000;box-shadow:0 3px 0 var(--jumpsuit-lo);padding:8px 10px;cursor:pointer;margin-top:8px}
+footer{font-size:16px;color:var(--steel);max-width:80ch}
+@media (prefers-reduced-motion: reduce){.doc,.bust.in,.bust.out,.fig,.stampmark{animation-duration:.01s;transition-duration:.01s}}
+</style>
+</head>
+<body>
+<div class="game">
+  <header>
+    <h1>Jail<span>dle</span> Desk</h1>
+    <div class="tally"><span>Seen <b id="tSeen">0</b></span><span>Correct <b id="tOk">0</b></span><button type="button" id="reset">Reset tally</button><a href="../">Daily case</a></div>
+  </header>
+
+  <div class="strip" id="strip" aria-hidden="true"><div class="door" id="door"></div></div>
+
+  <div class="main">
+    <div class="booth">
+      <div class="hatch"><div class="marks"><span>6'6"</span><span>6'0"</span><span>5'6"</span><span>5'0"</span><span>4'6"</span></div><img class="bust" id="bust" alt=""></div>
+      <div class="shelf"></div>
+      <div class="status" id="status" aria-live="polite">Window closed. Call the first inmate.</div>
+      <button class="call" id="call" type="button">Call next</button>
+    </div>
+    <div class="desk" id="desk">
+      <div class="empty" id="empty">Their papers arrive here. Read them, then file your estimate of the time they have left to serve. Drag papers to arrange your desk.</div>
+      <div class="tray" id="tray"><span class="t">Request file</span></div>
+    </div>
+  </div>
+  <footer>Everyone shown was convicted in court and, to the best of our records, in custody when the list was checked in November 2026. Release dates move with appeals, credits, clemency and parole decisions. Sources are on each closing slip.</footer>
+</div>
+
+<script id="people" type="application/json">/*__DATA__*/</script>
+<script>
+(function(){
+"use strict";
+const PEOPLE = JSON.parse(document.getElementById("people").textContent);
+const MAX = 5, WIN_WITHIN = 3, BASE = "../";
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
+const store = { get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} } };
+
+function today(){ const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function parseDate(s){ const p=s.split("-").map(Number); return new Date(p[0], (p[1]||1)-1, p[2]||15); }
+function monthsLeft(p){ const t=today(), r=parseDate(p.releaseDate);
+  let m=(r.getFullYear()-t.getFullYear())*12 + (r.getMonth()-t.getMonth()); const dd=r.getDate()-t.getDate();
+  if(dd>=15) m+=1; else if(dd<=-16) m-=1; return m; }
+function fmtDur(m){ const y=Math.floor(m/12), mo=m%12; const a=[]; if(y) a.push(y+(y===1?" year":" years")); if(mo||!y) a.push(mo+(mo===1?" month":" months")); return a.join(", "); }
+function fmtDate(s){ if(!s) return ""; const p=s.split("-"); const M=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  if(p.length===1) return p[0]; if(p.length===2) return M[+p[1]-1]+" "+p[0]; return M[+p[1]-1]+" "+(+p[2])+", "+p[0]; }
+function heat(diff){ const a=Math.abs(diff);
+  if(a<=WIN_WITHIN) return ["s-ok","Correct"]; if(a<=6) return ["s-hot","Scorching"]; if(a<=12) return ["s-hot","Hot"];
+  if(a<=24) return ["s-warm","Warm"]; if(a<=60) return ["s-cool","Cool"]; if(a<=120) return ["s-cold","Cold"]; return ["s-cold","Frozen"]; }
+function recordsFor(p){
+  const age = p.birthYear ? " Age now: about "+(today().getFullYear()-p.birthYear)+"." : "";
+  return [
+    ["Offence record", [p.crimeDates, p.convictedOf ? "Counts: "+p.convictedOf : ""].filter(Boolean).join(". ")],
+    ["Custody record", ["In custody since "+fmtDate(p.custodyStart), p.sentencingDate ? "Sentenced "+fmtDate(p.sentencingDate)+"." : ""].filter(Boolean).join(". ")+age],
+    ["Jurisdiction memo", [p.jurisdiction, p.facility ? "Held at "+p.facility : "", p.releaseRule].filter(Boolean).join(". ")],
+    ["Sentence order", p.sentenceLength]
+  ];
+}
+const pid = p => p.img.replace(/\D/g,"");
+
+/* ---------- tally ---------- */
+let T = store.get("jaildle.desk") || {seen:[], served:0, ok:0};
+function showTally(){ $("tSeen").textContent=T.served; $("tOk").textContent=T.ok; }
+$("reset").onclick=()=>{ T={seen:[],served:0,ok:0}; store.set("jaildle.desk",T); showTally(); };
+
+/* ---------- corridor ---------- */
+const strip=$("strip"), door=$("door");
+const FIG = (suit,head) => '<svg viewBox="0 0 8 14"><rect x="2" y="0" width="4" height="4" fill="'+head+'"/><rect x="1" y="4" width="6" height="6" fill="'+suit+'"/><rect x="2" y="10" width="2" height="4" fill="'+suit+'"/><rect x="4" y="10" width="2" height="4" fill="'+suit+'"/><rect x="0" y="5" width="1" height="4" fill="'+suit+'"/><rect x="7" y="5" width="1" height="4" fill="'+suit+'"/></svg>';
+const HEADS=["#c9a27e","#8a5a3c","#e0c2a2","#6b452f","#b98c66"];
+let queue=[]; const GAP=30;
+function doorX(){ return Math.round(strip.clientWidth*0.62); }
+function fig(x){ const f=el("div","fig"); f.innerHTML=FIG("#e2560f", HEADS[Math.floor(Math.random()*HEADS.length)]); f.style.left=x+"px"; strip.appendChild(f); return f; }
+function layoutQueue(){ const dx=doorX(); door.style.left=dx+"px"; queue.forEach((f,i)=>{ f.style.left=(dx-GAP*(i+1))+"px"; }); }
+function walk(f,ms){ f.classList.add("walk"); setTimeout(()=>f.classList.remove("walk"), ms||950); }
+function initStrip(){ const dx=doorX(); door.style.left=dx+"px";
+  const g=el("div","fig guard"); g.innerHTML=FIG("#2b3a55","#c9a27e"); strip.appendChild(g);
+  const n=Math.max(3,Math.min(9,Math.floor(dx/GAP)-1)); for(let i=0;i<n;i++) queue.push(fig(dx-GAP*(i+1))); }
+function advanceQueue(){ const dx=doorX(); const front=queue.shift();
+  if(front){ front.style.left=(dx+8)+"px"; walk(front); setTimeout(()=>{ front.style.opacity="0"; setTimeout(()=>front.remove(),300); },900); }
+  const tail=fig(-40); queue.push(tail); requestAnimationFrame(()=>requestAnimationFrame(()=>{ layoutQueue(); queue.forEach(f=>walk(f)); })); }
+function exitFigure(){ const dx=doorX(); const f=fig(dx+8); f.style.opacity="0"; requestAnimationFrame(()=>requestAnimationFrame(()=>{ f.style.opacity="1"; f.style.transition="left 2.4s steps(24),opacity .2s steps(2)"; f.style.left=(strip.clientWidth+40)+"px"; walk(f,2400); })); setTimeout(()=>f.remove(),2700); }
+window.addEventListener("resize", layoutQueue);
+
+/* ---------- desk & dragging ---------- */
+const desk=$("desk"); let zTop=10, docs=[];
+function addDoc(cls, x, y, build, delay){
+  const d=el("div","doc "+cls); build(d);
+  d.style.zIndex=++zTop; d.style.animationDelay=(delay||0)+"ms";
+  desk.appendChild(d);
+  const W=desk.clientWidth, H=desk.clientHeight-64;
+  d.style.left=Math.max(4,Math.min(W-d.offsetWidth-4, Math.round(x*W)))+"px";
+  d.style.top =Math.max(4,Math.min(H-d.offsetHeight-4, Math.round(y*H)))+"px";
+  docs.push(d); makeDraggable(d); return d;
+}
+function makeDraggable(d){
+  let sx,sy,ox,oy,on=false;
+  d.addEventListener("pointerdown",e=>{ d.style.zIndex=++zTop;
+    if(e.target.closest("button,input,a")) return;
+    on=true; sx=e.clientX; sy=e.clientY; ox=d.offsetLeft; oy=d.offsetTop; d.classList.add("drag"); d.setPointerCapture(e.pointerId); e.preventDefault(); });
+  d.addEventListener("pointermove",e=>{ if(!on) return;
+    const W=desk.clientWidth, H=desk.clientHeight;
+    d.style.left=Math.max(-d.offsetWidth+40,Math.min(W-40, ox+e.clientX-sx))+"px";
+    d.style.top =Math.max(0,Math.min(H-40, oy+e.clientY-sy))+"px"; });
+  const end=()=>{ on=false; d.classList.remove("drag"); };
+  d.addEventListener("pointerup",end); d.addEventListener("pointercancel",end);
+}
+function clearDesk(){ docs.forEach(d=>{ d.classList.add("gone"); setTimeout(()=>d.remove(),450); }); docs=[]; }
+
+/* ---------- a case ---------- */
+let C=null;   // {p, ans, guesses:[], open:[bool x4], over, won}
+const tray=$("tray"); let reqBtns=[];
+function buildTray(){ reqBtns.forEach(b=>b.remove()); reqBtns=[];
+  if(!C) return;
+  recordsFor(C.p).forEach((r,i)=>{ const b=el("button","req",r[0]); b.type="button"; b.onclick=()=>requestRecord(i); tray.appendChild(b); reqBtns.push(b); });
+  updateTray(); }
+function updateTray(){ if(!C) return; const misses=C.guesses.filter(g=>Math.abs(g-C.ans)>WIN_WITHIN).length;
+  reqBtns.forEach((b,i)=>{ const sent=C.open[i], ready=!sent && (C.over || misses>i);
+    b.disabled=!ready; b.classList.toggle("ready",ready);
+    b.textContent = recordsFor(C.p)[i][0]+(sent?" (on desk)":ready?"":" (sealed)"); }); }
+function requestRecord(i){ if(!C || C.open[i]) return; C.open[i]=true; const r=recordsFor(C.p)[i];
+  addDoc("rec", 0.02+0.07*i, 0.42+0.07*i, d=>{ d.appendChild(el("h2",null,r[0])); d.appendChild(el("p",null,r[1]||"Nothing on record")); });
+  updateTray(); }
+
+function pick(){ let pool=PEOPLE.filter(p=>monthsLeft(p)>=2 && !T.seen.includes(pid(p)));
+  if(!pool.length){ T.seen=[]; pool=PEOPLE.filter(p=>monthsLeft(p)>=2); }
+  return pool[Math.floor(Math.random()*pool.length)]; }
+
+const bust=$("bust"), callBtn=$("call"), status=$("status");
+function callNext(){
+  if(C && !C.over) return;
+  callBtn.disabled=true; $("empty").hidden=true;
+  const leaving = !!C;
+  if(leaving){ clearDesk(); buildTrayEmpty(); bust.classList.remove("in"); bust.classList.add("out"); exitFigure(); status.textContent="Escorted back to the block."; }
+  setTimeout(()=>{
+    const p=pick(); C={p, ans:monthsLeft(p), guesses:[], open:[false,false,false,false], over:false, won:false};
+    advanceQueue(); status.textContent="Next inmate to the window.";
+    const pre=new Image(); pre.onload=pre.onerror=()=>{ bust.src=pre.src; bust.alt="Pixel portrait of "+p.name; bust.classList.remove("out"); void bust.offsetWidth; bust.classList.add("in"); };
+    pre.src=BASE+"p/"+pid(p)+".png";
+    setTimeout(()=>{ status.textContent="At the window: "+p.name+"."; dealPapers(); buildTray(); }, 1500);
+  }, leaving ? 1200 : 100);
+}
+function buildTrayEmpty(){ reqBtns.forEach(b=>b.remove()); reqBtns=[]; }
+
+function dealPapers(){ const p=C.p;
+  addDoc("card", 0.03, 0.03, d=>{
+    d.appendChild(el("h2",null,"Booking card"));
+    const row=el("div","row"); const im=new Image(); im.src=BASE+p.img; im.alt="Photo of "+p.name; im.draggable=false; row.appendChild(im);
+    const tx=el("div"); tx.appendChild(el("div","nm",p.name)); if(p.knownFor){ tx.appendChild(el("span","lab","Known as")); tx.appendChild(el("p",null,p.knownFor)); }
+    row.appendChild(tx); d.appendChild(row);
+    d.appendChild(el("span","lab","Convicted")); d.appendChild(el("p","hl",p.headline));
+    if(p.imgCredit){ const c=el("p"); c.style.fontSize="15px"; const a=el("a",null,"Photo source"); a.href=p.imgCredit; a.target="_blank"; a.rel="noopener"; c.appendChild(a); d.appendChild(c); }
+  }, 0);
+  addDoc("form", 0.52, 0.06, d=>{
+    d.appendChild(el("h2",null,"Release estimate"));
+    d.appendChild(el("p",null,"Time left before release. Within 3 months counts. Five attempts."));
+    const f=el("form"); f.autocomplete="off"; const steps=el("div","steps");
+    [["yrs","Years",99,5],["mos","Months",11,0]].forEach(([id,lab,max,val])=>{ const w=el("div"); const l=el("label","lab",lab); l.htmlFor=id; w.appendChild(l);
+      const s=el("div","stp"); const m=el("button",null,"−"); m.type="button"; m.setAttribute("aria-label","Fewer "+lab.toLowerCase());
+      const i=el("input"); i.id=id; i.type="number"; i.inputMode="numeric"; i.min=0; i.max=max; i.value=val;
+      const pl=el("button",null,"+"); pl.type="button"; pl.setAttribute("aria-label","More "+lab.toLowerCase());
+      m.onclick=()=>step(id,-1); pl.onclick=()=>step(id,1); s.append(m,i,pl); w.appendChild(s); steps.appendChild(w); });
+    f.appendChild(steps);
+    const b=el("button","file","File estimate"); b.type="submit"; f.appendChild(b);
+    const pips=el("div","pips"); pips.id="pips"; f.appendChild(pips);
+    const er=el("p","err"); er.id="err"; er.setAttribute("role","alert"); f.appendChild(er);
+    f.addEventListener("submit",ev=>{ ev.preventDefault(); fileEstimate(); });
+    d.appendChild(f); C.form=d;
+  }, 250);
+  showPips();
+}
+function clamp(id){ const e=$(id); let v=parseInt(e.value,10); if(isNaN(v)) v=0; v=Math.max(+e.min,Math.min(+e.max,v)); e.value=v; return v; }
+function step(id,dl){ const e=$(id); let v=(parseInt(e.value,10)||0)+dl;
+  if(id==="mos"){ const y=$("yrs"); if(v>11){ if(+y.value<99){ y.value=+y.value+1; v=0; } else v=11; } if(v<0){ if(+y.value>0){ y.value=+y.value-1; v=11; } else v=0; } }
+  e.value=v; clamp(id); $("err").textContent=""; }
+function showPips(){ const e=$("pips"); if(e) e.textContent="Attempts "+"●".repeat(C.guesses.length)+"○".repeat(MAX-C.guesses.length); }
+
+function fileEstimate(){ if(!C || C.over) return;
+  const g=clamp("yrs")*12+clamp("mos");
+  if(C.guesses.includes(g)){ $("err").textContent="Already filed "+fmtDur(g)+"."; return; }
+  $("err").textContent=""; C.guesses.push(g); const n=C.guesses.length, diff=g-C.ans, h=heat(diff), hit=Math.abs(diff)<=WIN_WITHIN;
+  addDoc("slip", 0.56+0.06*((n-1)%3), 0.50+0.07*(n-1), d=>{
+    d.appendChild(el("h2",null,"Records office · attempt "+n));
+    d.appendChild(el("p","big",fmtDur(g)));
+    d.appendChild(el("p",null, hit ? "Matches the record." : (diff<0 ? "Too short. The real figure is longer." : "Too long. The real figure is shorter.")));
+    d.appendChild(el("span","stampmark "+h[0], hit ? "Correct" : (diff<0?"Longer":"Shorter")+" · "+h[1]));
+  });
+  showPips();
+  if(hit || n>=MAX){ C.over=true; C.won=hit; finish(); }
+  updateTray();
+}
+function finish(){ const p=C.p;
+  T.served++; if(C.won) T.ok++; T.seen.push(pid(p)); store.set("jaildle.desk",T); showTally();
+  if(C.form){ C.form.classList.add("gone"); const f=C.form; setTimeout(()=>f.remove(),450); docs=docs.filter(d=>d!==f); }
+  status.textContent = C.won ? "Estimate accepted." : "Out of attempts.";
+  const kind={"official projected release":"Official projected release date","earliest parole eligibility":"Earliest possible parole date","computed full term":"End of full sentence","computed estimate":"Estimated release date"}[p.releaseType]||"Release date";
+  addDoc("verdict", 0.20, 0.16, d=>{
+    d.appendChild(el("h2",null, C.won ? "Correct in "+C.guesses.length+(C.guesses.length===1?" attempt":" attempts") : "Out of attempts"));
+    d.appendChild(el("p","big",fmtDur(C.ans)+" to go"));
+    d.appendChild(el("p",null,kind+": "+fmtDate(p.releaseDate)+"."+(p.notes?" "+p.notes:"")));
+    if(p.sources && p.sources.length){ const s=el("p","src","Sources: ");
+      p.sources.forEach((u,i)=>{ const a=el("a"); a.href=u; a.target="_blank"; a.rel="noopener"; try{ a.textContent=new URL(u).hostname.replace(/^www\./,""); }catch(e){ a.textContent="link"; } if(i) s.append(", "); s.appendChild(a); });
+      d.appendChild(s); }
+    const b=el("button","next","Call next inmate"); b.type="button"; b.onclick=callNext; d.appendChild(b);
+  }, 300);
+  callBtn.disabled=false;
+}
+
+callBtn.onclick=callNext;
+showTally(); initStrip();
+})();
+</script>
+</body>
+</html>

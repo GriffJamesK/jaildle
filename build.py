@@ -3,6 +3,7 @@
 
 docs/index.html holds the game and the case data; docs/i/ holds one photo per person,
 loaded only when that person's case is shown.
+docs/desk/ is Jaildle Desk, the free-play fork (src/desk.html), with pixel portraits in docs/p/.
 
 Play order is the order of data/people.json: case no. 1 is the first entry, and so on.
 Add new people at the END so existing days keep their cases, and give each a new unique "id"
@@ -17,7 +18,7 @@ Usage: python3 build.py          (the build to publish)
        python3 build.py --dev    (local preview: arrows can step into future days; do not publish)
 """
 import io, json, pathlib, re, shutil, subprocess, sys, time, unicodedata, urllib.parse
-from PIL import Image
+from PIL import Image, ImageOps
 
 ROOT = pathlib.Path(__file__).parent
 IMG = ROOT / "data" / "img"
@@ -68,6 +69,36 @@ def wiki_photo(person):
     return img_f, "https://commons.wikimedia.org/wiki/File:" + urllib.parse.quote(meta["file"])
 
 
+PIXEL_TONES = [(26, 24, 30), (62, 54, 58), (118, 96, 86), (176, 146, 122), (226, 204, 176)]   # dark to light
+
+
+def pixel_portrait(src, dst):
+    """A 44x52 five-tone posterised portrait, shown enlarged with hard pixels."""
+    im = Image.open(src).convert("L")
+    w, h = im.size
+    if h >= w:                      # portrait photo: keep the top, where the head is
+        box_h = min(h, int(w * 52 / 44))
+        im = im.crop((0, 0, w, box_h))
+    else:                           # landscape photo: centre crop
+        box_w = int(h * 44 / 52)
+        left = (w - box_w) // 2
+        im = im.crop((left, 0, left + box_w, h))
+    im = ImageOps.autocontrast(im.resize((44, 52), Image.BOX), cutoff=2)
+    vals = list(im.tobytes())
+    px = sorted(vals)
+    cuts = [px[int(len(px) * f)] for f in (0.16, 0.38, 0.62, 0.84)]   # tone bands sized to this photo
+    out = Image.new("RGBA", im.size)
+    data = []
+    for i, v in enumerate(vals):
+        x, y = i % 44, i // 44
+        # keep a head-and-shoulders shape and drop the photo's background, so a figure stands at the window
+        head = ((x - 21.5) / 15.5) ** 2 + ((y - 19) / 19.5) ** 2 <= 1
+        shoulders = y >= 32 and abs(x - 21.5) <= 13 + (y - 32) * 0.55
+        data.append(PIXEL_TONES[sum(v > c for c in cuts)] + (255,) if head or shoulders else (0, 0, 0, 0))
+    out.putdata(data)
+    out.save(dst, optimize=True)
+
+
 def ascii_slug(name):
     s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
@@ -104,6 +135,14 @@ def main():
     if "--dev" in sys.argv:   # local preview only: lets the arrows step into future days. Never publish this build.
         html = html.replace("/*__DEV__*/false", "true")
     (DIST / "index.html").write_text(html)
+    # Jaildle Desk: the free-play fork. Same people and photos, plus a pixel portrait of each for the window.
+    (DIST / "desk").mkdir()
+    (DIST / "p").mkdir()
+    for q in out:
+        num = q["img"][2:5]
+        pixel_portrait(DIST / q["img"], DIST / "p" / f"{num}.png")
+    desk = (ROOT / "src" / "desk.html").read_text().replace("/*__DATA__*/", blob)
+    (DIST / "desk" / "index.html").write_text(desk)
     (DIST / ".nojekyll").write_text("")   # tells GitHub Pages to serve the files as they are
     size = sum(f.stat().st_size for f in DIST.rglob("*") if f.is_file()) / 1e6
     print(f"{len(out)} people in the game; docs/ is {size:.1f} MB (index.html {len(html)/1e6:.2f} MB).")

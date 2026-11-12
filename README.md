@@ -3,6 +3,7 @@
 A daily guessing game: how long until a famous inmate's release date?
 
 - `docs/` is the built game: `index.html` plus one photo per person in `docs/i/`. Host the folder anywhere.
+- `docs/desk/` is **Jaildle Desk**, a free-play fork built from `src/desk.html`: call inmates to a records window one after another, read their papers on a desk you can rearrange, and file an estimate. It uses the same people and photos, plus a pixel portrait of each in `docs/p/` made by `build.py`.
 - `data/people.json` is the list. Edit it, then run `python3 build.py` to rebuild.
 - `build.py` pulls each person's lead photo from their Wikipedia article (`wikipediaTitle`) and embeds it.
   People with no freely licensed photo are left out of the game. To include one, put a JPEG in
