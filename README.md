@@ -9,6 +9,7 @@ A daily guessing game: how long until a famous inmate's release date?
   People with no freely licensed photo are left out of the game. To include one, put a JPEG in
   `data/img/custom/` and set `"photoFile": "name.jpg"` (and optionally `"photoCredit": "<url>"`) on their entry.
 - Other days: the arrows beside the case number replay past cases. Players cannot go past today. To preview future days yourself, run `python3 build.py --dev` and open `docs/index.html` locally; never publish that build.
+- `tools/portraits.py` makes the Desk game's window portraits in `data/portraits/`: it cuts each person out of their photo, sizes the head by the detected face, and reduces it to flat colours. Run it after adding people (needs `pip install rembg onnxruntime opencv-python-headless`), then run `build.py`. Don't run the two at the same time.
 - `tools/recheck.py` re-checks the cases for the next 7 days (or `--days N`, or `--all`) against the Bureau of Prisons record and lists anyone released, moved or re-dated. Non-federal cases are listed for a manual check.
 - `tools/bop_check.py "First Last"` looks up a US federal inmate's official projected release date.
 

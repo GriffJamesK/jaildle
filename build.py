@@ -140,7 +140,11 @@ def main():
     (DIST / "p").mkdir()
     for q in out:
         num = q["img"][2:5]
-        pixel_portrait(DIST / q["img"], DIST / "p" / f"{num}.png")
+        made = ROOT / "data" / "portraits" / f"{num}.png"      # from tools/portraits.py (person cut out, head sized by face)
+        if made.exists():
+            shutil.copy(made, DIST / "p" / f"{num}.png")
+        else:
+            pixel_portrait(DIST / q["img"], DIST / "p" / f"{num}.png")   # simple fallback until the tool has been run
     desk = (ROOT / "src" / "desk.html").read_text().replace("/*__DATA__*/", blob)
     (DIST / "desk" / "index.html").write_text(desk)
     (DIST / ".nojekyll").write_text("")   # tells GitHub Pages to serve the files as they are
