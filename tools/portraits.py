@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Make the window portraits for Jaildle Desk: one small pixel-art figure per person in data/portraits/.
+"""Make the window portraits for Jaildle, Please: one small pixel-art figure per person in data/portraits/.
 
 For each photo it cuts the person out of the background (rembg), finds the face (OpenCV) so every head ends
 up the same size and position, and reduces the figure to a few flat colours. The person's own clothes and body are kept.
@@ -85,37 +85,15 @@ def make(src, dst):
     if keep.sum() < 40:
         return "empty"
     low = np.nonzero(keep.any(axis=1))[0].max()
-    extend = None
-    if low < H - 1:                                                   # the photo stops above the sill: continue the body downward
-        cols = np.nonzero(keep[low])[0]
-        l, r = int(cols.min()), int(cols.max())
-        plain = low < CHIN_Y + 8                                      # cut at the neck: nothing to continue, so draw a plain grey top
-        base = (96, 100, 108) if plain else tuple(int(v) for v in np.median(hp[max(0, low - 1):low + 1][keep[max(0, low - 1):low + 1]], axis=0))
-        dark = tuple(int(v * 0.72) for v in base)
-        lite = tuple(min(255, int(v * 1.18)) for v in base)
-        extend = []
-        cx, half, target = (l + r) / 2, (r - l) / 2, FACE_W * 1.3
-        mid = hp[low, int(cx) - 2:int(cx) + 3].reshape(-1, 3)
-        skin = tuple(int(v) for v in np.median(mid, axis=0))
-        for i, y in enumerate(range(low + 1, H)):
-            if half < target:
-                half = min(target, half + 2.5)                        # shoulders slope out from the neck
-            x0, x1 = max(0, int(round(cx - half))), min(W - 1, int(round(cx + half)))
-            for x in range(x0, x1 + 1):
-                col = dark if x < x0 + 3 else base
-                if plain and abs(x - cx) < 6 - 2 * i:                 # a scoop neckline, so it reads as a T-shirt
-                    col = skin
-                elif plain and abs(x - cx) < 7 - 2 * i:
-                    col = dark
-                extend.append((y, x, col))
+    if low < H - 1:                                                   # the photo stops short: lower the figure so its cut edge sits at the window's bottom edge
+        shift = H - 1 - low
+        keep = np.roll(keep, shift, axis=0); hp = np.roll(hp, shift, axis=0); keep[:shift] = False
     # flat colours: reduce the figure to 10 tones
     pix = hp[keep]
     pal = Image.fromarray(pix.reshape(-1, 1, 3)).quantize(colors=10, method=Image.MEDIANCUT, dither=Image.NONE).convert("RGB")
     flat = np.array(pal).reshape(-1, 3)
     out = np.zeros((H, W, 4), np.uint8)
     out[keep] = np.concatenate([flat, np.full((len(flat), 1), 255, np.uint8)], axis=1)
-    for y, x, col in (extend or []):
-        out[y, x] = (*[int(v) for v in col], 255)
     # a dark outline so the figure reads against the wall
     solid = out[:, :, 3] > 0
     edge = np.zeros_like(solid)

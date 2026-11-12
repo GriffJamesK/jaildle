@@ -3,7 +3,7 @@
 
 docs/index.html holds the game and the case data; docs/i/ holds one photo per person,
 loaded only when that person's case is shown.
-docs/desk/ is Jaildle Desk, the free-play fork (src/desk.html), with pixel portraits in docs/p/.
+docs/desk/ is Jaildle, Please, the free-play fork (src/desk.html), with pixel portraits in docs/p/.
 
 Play order is the order of data/people.json: case no. 1 is the first entry, and so on.
 Add new people at the END so existing days keep their cases, and give each a new unique "id"
@@ -135,7 +135,7 @@ def main():
     if "--dev" in sys.argv:   # local preview only: lets the arrows step into future days. Never publish this build.
         html = html.replace("/*__DEV__*/false", "true")
     (DIST / "index.html").write_text(html)
-    # Jaildle Desk: the free-play fork. Same people and photos, plus a pixel portrait of each for the window.
+    # Jaildle, Please: the free-play fork. Same people and photos, plus a pixel portrait of each for the window.
     (DIST / "desk").mkdir()
     (DIST / "p").mkdir()
     for q in out:
